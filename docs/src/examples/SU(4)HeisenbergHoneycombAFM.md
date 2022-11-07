@@ -141,8 +141,8 @@ plot!(plt1, energybands, color=:white, linestyle=:dash, linealpha=0.1,xticks=([0
 ### Spectra of multipole operators with E=1.0
 ```@example SU(4)AFM
 #Ecut
-nx, ny = 16, 16
-zone = ReciprocalZone(reciprocals(lattice),Segment(0, +1, nx),Segment(-0//2, +2//2, ny))
+nx, ny = 32, 32
+zone = ReciprocalZone(reciprocals(lattice),Segment(-1, +1, nx; ends=(true, true)), Segment(-2//2, +2//2, ny; ends=(true, true)))
 inszone = antiferromagnet(:MultipoleZone,
     Spectra{Multipole}(zone, range(0.0, 20, length=501), (Mss, Mssd); fwhm=0.2, gauss=true, scale=identity, atol=1e-9)
     )

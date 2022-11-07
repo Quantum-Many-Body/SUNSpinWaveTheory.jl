@@ -98,7 +98,7 @@ plot!(plt1, insmultipole)
 ### Inelastic neutron spectra with E=1.0
 ```@example SU(2)AFM
 nx, ny = 32, 32
-zone = ReciprocalZone(reciprocals(lattice), Segment(0, +1, nx),Segment(-0//2, +2//2, ny))
+zone = ReciprocalZone(reciprocals(lattice), Segment(0, +1, nx; ends=(true, true)),Segment(-0//2, +2//2, ny; ends=(true, true)))
 inszone = antiferromagnet(:INSZ,
     Spectra{InelasticNeutron}(zone, range(0.0, 2.5, length=251), (ss,ss); fwhm=0.1, scale=log)
     )
