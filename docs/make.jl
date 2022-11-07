@@ -5,7 +5,7 @@ DocMeta.setdocmeta!(SUNSpinWaveTheory, :DocTestSetup, :(using SUNSpinWaveTheory)
 
 makedocs(;
     modules=[SUNSpinWaveTheory],
-    authors="wwangnju <wwangnju@163.com> and contributors",
+    authors="wwangnju <wwangnju@163.com>",
     repo="https://github.com/Quantum-Many-Body/SUNSpinWaveTheory.jl/blob/{commit}{path}#{line}",
     sitename="SUNSpinWaveTheory.jl",
     format=Documenter.HTML(;
@@ -16,6 +16,11 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Examples" => [
+            "examples/Introduction.md",
+            "examples/SU(2)HeisenbergSquareAFM.md",
+            "examples/SU(4)HeisenbergHoneycombAFM.md",
+        ]
     ],
 )
 

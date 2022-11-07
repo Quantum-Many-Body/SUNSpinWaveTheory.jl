@@ -1,3 +1,9 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+QuantumLattices = "78ae1a1f-1d5d-5174-b61c-66e31b2346dc"
 SUNSpinWaveTheory = "3cc645e2-8e7a-4ca5-82a4-27824dbc5d93"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+TightBindingApproximation = "d3576f78-cb9d-4774-9dc5-b247cf392ff4"
