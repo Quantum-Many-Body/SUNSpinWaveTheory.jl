@@ -660,12 +660,18 @@ function spectraEcut(ass::Assignment{<:Spectra}, Ecut::Float64, dE::Float64)
     i = findall(f, energies)
     intensity = ass.data[3]
     dims = Int[]
-    for bound in ass.action.path.bounds
-        bound.length > 1 && push!(dims, bound.length)
+    seg = []
+    reciprocals = []
+    for (i, bound) in enumerate(ass.action.path.bounds)
+        if bound.length > 1 
+            push!(dims, bound.length)
+            push!(seg, bound)
+            push!(reciprocals, ass.action.path.reciprocals[i])
+        end
     end
     @assert length(dims) == 2 "spectraEcut error: the k points is not in a plane."
-    y = collect(Float64, 0:(dims[2]-1))
-    x = collect(Float64, 0:(dims[1]-1))
+    y = collect(seg[2])*norm(reciprocals[2])#collect(Float64, 0:(dims[2]-1))
+    x = collect(seg[1])*norm(reciprocals[1])#collect(Float64, 0:(dims[1]-1))
     z = reshape(sum(intensity[i, :], dims=1), reverse(dims)...)
     return (x, y, z)
 end
@@ -732,6 +738,7 @@ Define the recipe for the visualization of an assignment with Ecut and data of a
     legend --> false
     xlabel --> "q₁"
     ylabel --> "q₂" 
+    aspect_ratio := :equal
     @series begin
         seriestype := :heatmap
         data = spectraEcut(pack[2], Ecut, dE)
