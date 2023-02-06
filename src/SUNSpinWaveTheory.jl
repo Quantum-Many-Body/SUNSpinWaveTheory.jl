@@ -18,8 +18,22 @@ import TightBindingApproximation: commutator
 
 export MagneticStructure, HPTransformation, suncouplings, SUNTerm, localorder, matrixcoef, spectraEcut, multipoleOperator
 export SUNLSWT, Spectra, rotation_gen, rotation, @rotation_gen, optimorder, optimorder2, fluctuation
-export SpectraKind, InelasticNeutron, Multipole
+export SpectraKind, InelasticNeutron, Multipole, @f2couplings, kdosOperator
 
+macro f2couplings(ex, ex1, ey1)
+    res = :(+())
+    @assert ex.head == :vcat "f2couplings error: the head of first Expr $(ex.head) == :vcat"
+    for i in 1:length(ex.args)
+        expr1 = (Expr(:ref, (ex1), i))
+        for (j, arg1) in enumerate(ex.args[i].args) 
+            expr2 = Expr(:ref, ey1, j)
+            expr3 = @eval(Main, Expr(:call, :*, $expr1, $expr2 ))
+            push!(res.args, Expr(:call, :*, arg1, expr3 ) )
+        end
+    end
+    res1 = res
+        return @eval(Main, $res1)
+end
 """
     suncouplings(J₁₂₃₄::Array{<:Number,4}) -> OperatorSum
 
@@ -513,11 +527,11 @@ function optimorder(sunlswt::SUNLSWT; numrand::Int = 0, method = LBFGS(), g_tol 
 end
 
 """
-    localorder(sunlswt::SUNLSWT, orders::Dict{Int, Matrix{T}}) where T<:Number -> Dict{Int, <:Number} 
+    localorder(sunlswt::SUNLSWT, orders::Dict{Int, <:Matrix{T}}) where T<:Number -> Dict{Int, <:Number} 
 
 Return order parameters of each site, <classical gs|o|classical gs>. `orders[pid]` is the matrix of physical observable.
 """
-@inline function localorder(sunlswt::SUNLSWT, orders::Dict{Int, Matrix{T}}) where T<:Number
+@inline function localorder(sunlswt::SUNLSWT, orders::Dict{Int, <:Matrix{<:Number}}) 
     return (sunlswt.hp.magneticstructure)(orders)
 end
 @inline localorder(sunlswt::SUNLSWT, order::Matrix{<:Number}) = (sunlswt.hp.magneticstructure)(order)
@@ -540,6 +554,7 @@ struct InelasticNeutron <: SpectraKind{:INS} end
 Multipole Scattering Spectra of quantum lattice system. (∑_{α}s_{α}*s_{α})
 """
 struct Multipole <: SpectraKind{:Multipole} end
+
 """
     Spectra{K<:SpectraKind, P<:Union{ReciprocalPath, ReciprocalZone}, E<:AbstractVector, S<:Operators, O} <: Action
 
@@ -601,7 +616,7 @@ end
 function matrix!(m::Matrix{<:Number}, operators::SMatrix{3, 3, <:Operators, 9}, i::Int, j::Int, table::Table, k)
     m[:, :] .= zero(eltype(m))
     for op in operators[i, j]
-        phase = convert(eltype(m), exp(1im*dot(k, rcoordinate(op))))
+        phase = convert(eltype(m), exp(-1im*dot(k, rcoordinate(op))))
         seq₁ = table[op[1].index']
         seq₂ = table[op[2].index]
         m[seq₁, seq₂] += op.value*phase
@@ -632,7 +647,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT}, ins::Assignment{<:Spectra{Multipole
     ins.data[3][:, :] .= real(data)[:, :]
     ins.data[3][:, :] = get(ins.action.options, :scale, identity).(ins.data[3].+1)
 end
-function _multipoleoperators(opt::Tuple{AbstractVector{S1}, AbstractVector{S1}}, hp::HPTransformation{S, U}) where {S1<:Operators, S<:Operators, U<:CompositeIndex{<:Index{Int, <:FID}}}
+function _multipoleoperators(opt::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}, hp::HPTransformation{S, U}) where {S<:Operators, U<:CompositeIndex{<:Index{Int, <:FID}}}
     opt₁ = RankFilter(1).(hp.(opt[1]))
     opt₂ = RankFilter(1).(hp.(opt[2]))
     return sum(opt₁.*opt₂)
@@ -647,14 +662,28 @@ function matrix!(m::Matrix{<:Number}, operators::Operators, table::Table, k)
     end
     return m
 end
+"""
+    kdosOperator(u::Matrix{<:Number}, site::Int, lattice::Union{<:AbstractLattice, Int}) -> Operators
 
+Return Operators for kDOS case. u = ⟨α|site,orbital⟩, where |site,orbital⟩ => b_{site,orbital}, |α⟩ is the target state.
+"""
+function kdosOperator(u::Matrix{<:Number}, site::Int, lattice::Union{<:AbstractLattice, Int})
+    @assert size(u, 1) == 1 "kdosOperator error: the size of matrix is (1,n) ($(size(u)))."
+    dim = isa(lattice, Int) ? lattice : dimension(lattice)
+    res = []
+    for (i, value) in enumerate(u)
+        index₀ =  CompositeIndex(Index(site, FID{:b}(i, 0, 1)); rcoordinate=zeros(dim), icoordinate=zeros(dim))
+        push!(res, Operator(value, index₀))
+    end
+    return Operators(res...)
+end
 """
     spectraEcut(ass::Assignment{<:Spectra}, Ecut::Float64, dE::Float64) -> Tuple{Vector{Float64}, Vector{Float64}, Matrix{Float64}}
 
 Construct the spectra with fixed energy. The energy of `abs(energy-Ecut) <= dE` is selected. `nx` and `ny` are the number of x and y segments of ReciprocalZone, respectively.
 """
 function spectraEcut(ass::Assignment{<:Spectra}, Ecut::Float64, dE::Float64)
-    @assert typeof(ass.action.path) <: ReciprocalZone "spectraEcut error: please input the ReciprocalZone."
+    @assert isa(ass.action.path, ReciprocalZone) "spectraEcut error: please input the ReciprocalZone."
     energies = ass.data[2]
     f(x) = (abs(x - Ecut) <= dE ? true : false)
     i = findall(f, energies)
@@ -698,7 +727,7 @@ end
     fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone, pid::Int, nbonson::Int; atol=1e-8) -> Float64
     fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone; atol=1e-8) -> Dict{<:AbstractPID, Float64}
 
-To calculate ``⟨b_0^†b_0⟩`` with respect to the quantum ground state |0⟩.  
+To calculate ``⟨b_0^†b_0⟩`` with respect to the quantum ground state |0⟩ at zero temperature.  
 """
 function fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone, pid::Int, nbonson::Int; atol=1e-8)
     table = sunlswt.H.table
@@ -831,7 +860,7 @@ function optimorder2(sunlswt::SUNLSWT, ub::Vector{Float64}, x₀::Vector{Float64
         op₀ = op.minimum <= op₀.minimum ? op : op₀
     end
     x₁ = rule(op₀.minimizer)
-    moments = Dict{keytype(ms₀.moments),valtype(ms₀.moments)}()
+    moments = Dict{keytype(ms₀.moments), valtype(ms₀.moments)}()
     n0 = 0
     for i in 1:length(ms₀.cell)
         n = ndims[i]
