@@ -379,7 +379,7 @@ end
         boundary::Boundary=plain
     )
 
-Construct a SUNLSWT.
+Construct a SUNLSWT. `lattice` is the original lattice.
 """
 @inline function SUNLSWT(lattice::AbstractLattice, hilbert::Hilbert, terms::Tuple{Vararg{Term}}, magneticstructure::MagneticStructure; neighbors::Union{Nothing, Int, Neighbors}=nothing, boundary::Boundary=plain)
     isnothing(neighbors) && (neighbors=maximum(term->term.bondkind, terms))
@@ -584,6 +584,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT{SUNMagnonic}}, ins::Assignment{<:Spec
     m = zeros(promote_type(valtype(sunlswt.frontend), Complex{Int}), dimension(sunlswt.frontend), dimension(sunlswt.frontend))
     data = zeros(Complex{Float64}, size(ins.data[3]))
     gauss = get(ins.action.options, :gauss, true)
+    kT = get(ins.action.options, :kT, 0.0) # k = 8.617333262145e-5 eV/K
     σ = gauss ? get(ins.action.options, :fwhm, 0.1)/2/√(2*log(2)) : get(ins.action.options, :fwhm, 0.1)
     for (i, q) in enumerate(ins.action.path)
         (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, ins.action.options...)
@@ -595,7 +596,8 @@ function run!(sunlswt::Algorithm{<:SUNLSWT{SUNMagnonic}}, ins::Assignment{<:Spec
                 for (nₑ, e) in enumerate(ins.action.energies)
                     for j = (dimension(sunlswt.frontend)÷2 + 1):dimension(sunlswt.frontend)
                         temp = gauss ? 1/√(2pi)/σ*exp(-(e-eigenvalues[j])^2/2/σ^2) : σ^2/(σ^2 + (e-eigenvalues[j])^2)/pi
-                        data[nₑ, i] += factor*diag[j, j]*temp  
+                        bosonfactor = (kT ≈ 0.0) ? 1.0 : 1 + 1/(exp(eigenvalues[j]/kT) - 1 )
+                        data[nₑ, i] += factor*diag[j, j]*temp*bosonfactor 
                     end
                 end
             end
