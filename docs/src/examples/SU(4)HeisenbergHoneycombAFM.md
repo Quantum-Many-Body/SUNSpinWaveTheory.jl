@@ -114,7 +114,7 @@ energybands = antiferromagnet(:EB, EnergyBands(path; atol=1e-9))
 
 plt = plot()
 plot!(plt, ins)
-plot!(plt, energybands, color=:white, linestyle=:dash, linealpha=0.1, xticks=([0,100,200,300],["Γ","K","M","Γ"]))
+plot!(plt, energybands, color=:white, linestyle=:dash, linealpha=0.1) 
 #display(plt)
 ```
 ### Spectra of multipole operators 
@@ -135,7 +135,7 @@ insmultipole = antiferromagnet(:Multipole,
     )
 plt1 = plot()
 plot!(plt1, insmultipole, clims=(0, 100))
-plot!(plt1, energybands, color=:white, linestyle=:dash, linealpha=0.1,xticks=([0,100,200,300],["Γ","K","M","Γ"]))
+plot!(plt1, energybands, color=:white, linestyle=:dash, linealpha=0.1)
 #display(plt1)
 ```
 ### Spectra of multipole operators with E=1.0
