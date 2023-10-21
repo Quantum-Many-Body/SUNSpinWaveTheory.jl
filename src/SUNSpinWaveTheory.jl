@@ -574,7 +574,7 @@ end
 @inline Spectra{K}(reciprocalspace::ReciprocalSpace, energies::AbstractVector, operators::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}; options...) where {K <: SpectraKind} = Spectra{K}(reciprocalspace, energies, operators, options)
 
 @inline function initialize(ins::Spectra, sunlswt::SUNLSWT)
-    x = collect(Float64, 0:(length(ins.reciprocalspace)-1))
+    x = ins.reciprocalspace#collect(Float64, 0:(length(ins.reciprocalspace)-1))
     y = collect(Float64, ins.energies)
     z = zeros(Float64, length(y), length(x))
     return (x, y, z)
