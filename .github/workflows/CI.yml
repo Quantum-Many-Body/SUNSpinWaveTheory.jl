@@ -19,6 +19,7 @@ jobs:
       matrix:
         version:
           - '1.8'
+          - '1.9'
         os:
           - ubuntu-latest
         arch:
@@ -49,10 +50,18 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
+          JULIA_PKG_SERVER: ""
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+      - run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
             using SUNSpinWaveTheory
             DocMeta.setdocmeta!(SUNSpinWaveTheory, :DocTestSetup, :(using SUNSpinWaveTheory); recursive=true)
             doctest(SUNSpinWaveTheory)'
+      - run: julia --project=docs docs/make.jl
