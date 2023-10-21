@@ -43,7 +43,7 @@ hilbert = Hilbert(pid=>Fock{:b}(2, 1) for pid in 1:length(cell))
 
 magneticstructure = MagneticStructure(
     cell,
-    Dict(pid=>(iseven(pid) ?  Float64[pi/2, pi/2] : Float64[0.,0.] ) for pid in 1:length(cell))
+    Dict(pid=>(iseven(pid) ?  Float64[pi/2, pi/2] : Float64[0., 0.] ) for pid in 1:length(cell))
     )
 
 #initialization of SUNLSWT engine
@@ -71,9 +71,9 @@ println("σz on each site: ", localorder(op[1], pz))
 ```@example SU(2)AFM
 path = ReciprocalPath(reciprocals(lattice), rectangle"Γ-X-M-Γ", length=100)
 mx, my, mz = MatrixCoupling(:, FID, σ"x", :, :), MatrixCoupling(:, FID, σ"y", :, :), MatrixCoupling(:, FID, σ"z", :, :)
-sx = expand(Onsite(:mx, 0.5+0.0im, mx,amplitude=nothing, modulate=true),bonds(cell,0),hilbert,half=false)
-sy = expand(Onsite(:my, 0.5+0.0im, my,amplitude=nothing, modulate=true),bonds(cell,0),hilbert,half=false)
-sz = expand(Onsite(:mz, 0.5+0.0im, mz,amplitude=nothing, modulate=true),bonds(cell,0),hilbert,half=false)
+sx = expand(Onsite(:mx, 0.5+0.0im, mx,amplitude=nothing, modulate=true), bonds(cell,0), hilbert, half=false)
+sy = expand(Onsite(:my, 0.5+0.0im, my,amplitude=nothing, modulate=true), bonds(cell,0), hilbert, half=false)
+sz = expand(Onsite(:mz, 0.5+0.0im, mz,amplitude=nothing, modulate=true), bonds(cell,0), hilbert, half=false)
 ss = @SVector [sx,sy,sz]
 
 ins = antiferromagnet(:INS,
@@ -98,7 +98,7 @@ plot!(plt1, insmultipole)
 ### Inelastic neutron spectra with E=1.0
 ```@example SU(2)AFM
 nx, ny = 32, 32
-zone = ReciprocalZone(reciprocals(lattice), Segment(0, +1, nx; ends=(true, true)),Segment(-0//2, +2//2, ny; ends=(true, true)))
+zone = ReciprocalZone(reciprocals(lattice), 0=>1, 0=>1; length=(nx, ny), ends=((true, true), (true, true)))
 inszone = antiferromagnet(:INSZ,
     Spectra{InelasticNeutron}(zone, range(0.0, 2.5, length=251), (ss,ss); fwhm=0.1, scale=log)
     )

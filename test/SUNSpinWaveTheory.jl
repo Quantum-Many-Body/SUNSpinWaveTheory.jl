@@ -79,7 +79,7 @@ using Optim: ConjugateGradient
     savefig("squareFM_Multipole_spectra.png")
     #INS of fixed energy 
     nx, ny = 16, 16
-    zone = ReciprocalZone(reciprocals(lattice), Segment(0, +1, nx), Segment(-0//2, +2//2, ny))
+    zone = ReciprocalZone(reciprocals(lattice), 0=>1, 0=>1; length=(nx,ny))
     inszone = sunlswt(
                 :INSZ,
                 Spectra{InelasticNeutron}(

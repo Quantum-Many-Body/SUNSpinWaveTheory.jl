@@ -5,7 +5,7 @@ using TimerOutputs: @timeit
 using StaticArrays: SVector, SMatrix, @SMatrix
 using LinearAlgebra: Hermitian, Diagonal, dot, eigen, norm, I, kron, diag
 using QuantumLattices: ID, CompositeIndex, Operator, Operators, UnitSubstitution, RankFilter,  OperatorGenerator, Image, Action, Algorithm, Assignment
-using QuantumLattices: AbstractLattice, bonds, Index, FID, Table, Hilbert, Fock, Term, Boundary, ReciprocalPath, ReciprocalZone
+using QuantumLattices: AbstractLattice, bonds, Index, FID, Table, Hilbert, Fock, Term, Boundary, ReciprocalPath, ReciprocalZone, ReciprocalSpace
 using QuantumLattices: atol, rtol, dtype, indextype, fulltype, idtype, reparameter, sub!, mul!, expand, plain, rcoordinate, icoordinate, delta, decimaltostr
 using QuantumLattices: Coulomb, Onsite, matrix, dimension, Neighbors, Coupling, ishermitian, MatrixCoupling
 using QuantumLattices: OperatorUnitToTuple
@@ -336,7 +336,7 @@ Get the index-to-tuple metric for a quantum spin system after the Holstein-Prima
 
 Get the commutation relation of the Holstein-Primakoff bosons.
 """
-@inline commutator(::SUNMagnonic, hilbert::Hilbert{<:Fock{:b}}) = Diagonal(kron([1, -1], ones(Int64, sum(dimension, values(hilbert))÷2)))
+@inline commutator(::SUNMagnonic, hilbert::Hilbert{<:Fock{:b}}) = Diagonal(kron([1, -1], ones(Int64, sum(length, values(hilbert))÷2)))
 """
     SUNLSWT{K<:TBAKind{:BdG}, L<:AbstractLattice, Hₛ<:OperatorGenerator, HP<:HPTransformation, Ω<:Image, H<:Image} <: AbstractTBA{K, H, AbstractMatrix}
 
@@ -556,25 +556,25 @@ Multipole Scattering Spectra of quantum lattice system. (∑_{α}s_{α}*s_{α})
 struct Multipole <: SpectraKind{:Multipole} end
 
 """
-    Spectra{K<:SpectraKind, P<:Union{ReciprocalPath, ReciprocalZone}, E<:AbstractVector, S<:Operators, O} <: Action
+    Spectra{K<:SpectraKind, P<:ReciprocalSpace, E<:AbstractVector, S<:Operators, O} <: Action
 
 Spectra of 'magnetically' ordered quantum lattice systems by SU(N) linear spin wave theory.
 """
-struct Spectra{K<:SpectraKind, P<:Union{ReciprocalPath, ReciprocalZone}, E<:AbstractVector, S<:Operators, O} <: Action
-    path::P
+struct Spectra{K<:SpectraKind, P<:ReciprocalSpace, E<:AbstractVector, S<:Operators, O} <: Action
+    reciprocalspace::P
     energies::E
     operators::Tuple{AbstractVector{S}, AbstractVector{S}}
     options::O
-    function Spectra{K}(path::Union{ReciprocalPath, ReciprocalZone}, energies::AbstractVector, operators::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}, options) where {K<:SpectraKind}
-        @assert keys(path)==(:k,) "Spectra error: the name of the momenta in the path must be :k."
+    function Spectra{K}(reciprocalspace::ReciprocalSpace, energies::AbstractVector, operators::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}, options) where {K<:SpectraKind}
+        @assert names(reciprocalspace)==(:k,) "Spectra error: the name of the momenta in the reciprocalspace must be :k."
         datatype = eltype(eltype(operators))
-        new{K, typeof(path), typeof(energies), datatype, typeof(options)}(path, energies, operators, options)
+        new{K, typeof(reciprocalspace), typeof(energies), datatype, typeof(options)}(reciprocalspace, energies, operators, options)
     end
 end
-@inline Spectra{K}(path::Union{ReciprocalPath, ReciprocalZone}, energies::AbstractVector, operators::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}; options...) where {K <: SpectraKind} = Spectra{K}(path, energies, operators, options)
+@inline Spectra{K}(reciprocalspace::ReciprocalSpace, energies::AbstractVector, operators::Tuple{AbstractVector{<:Operators}, AbstractVector{<:Operators}}; options...) where {K <: SpectraKind} = Spectra{K}(reciprocalspace, energies, operators, options)
 
 @inline function initialize(ins::Spectra, sunlswt::SUNLSWT)
-    x = collect(Float64, 0:(length(ins.path)-1))
+    x = collect(Float64, 0:(length(ins.reciprocalspace)-1))
     y = collect(Float64, ins.energies)
     z = zeros(Float64, length(y), length(x))
     return (x, y, z)
@@ -586,7 +586,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT{SUNMagnonic}}, ins::Assignment{<:Spec
     gauss = get(ins.action.options, :gauss, true)
     kT = get(ins.action.options, :kT, 0.0) # k = 8.617333262145e-5 eV/K
     σ = gauss ? get(ins.action.options, :fwhm, 0.1)/2/√(2*log(2)) : get(ins.action.options, :fwhm, 0.1)
-    for (i, q) in enumerate(ins.action.path)
+    for (i, q) in enumerate(ins.action.reciprocalspace)
         (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, ins.action.options...)
         @timeit sunlswt.timer "spectra" for α=1:3, β=1:3
             factor = delta(α, β) - ((norm(q)==0 || α>length(q) || β>length(q)) ? 0 : q[α]*q[β]/dot(q, q))
@@ -632,7 +632,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT}, ins::Assignment{<:Spectra{Multipole
     data = zeros(Complex{Float64}, size(ins.data[3]))
     gauss = get(ins.action.options, :gauss, true)
     σ = gauss ? get(ins.action.options, :fwhm, 0.1)/2/√(2*log(2)) : get(ins.action.options, :fwhm, 0.1)
-    for (i, q) in enumerate(ins.action.path)
+    for (i, q) in enumerate(ins.action.reciprocalspace)
         (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, ins.action.options...)
         @timeit sunlswt.timer "spectra" (
                 matrix!(m, operators, sunlswt.frontend.H.table, q);
@@ -685,7 +685,7 @@ end
 Construct the spectra with fixed energy. The energy of `abs(energy-Ecut) <= dE` is selected. `nx` and `ny` are the number of x and y segments of ReciprocalZone, respectively.
 """
 function spectraEcut(ass::Assignment{<:Spectra}, Ecut::Float64, dE::Float64)
-    @assert isa(ass.action.path, ReciprocalZone) "spectraEcut error: please input the ReciprocalZone."
+    @assert isa(ass.action.reciprocalspace, ReciprocalZone) "spectraEcut error: please input the ReciprocalZone."
     energies = ass.data[2]
     f(x) = (abs(x - Ecut) <= dE ? true : false)
     i = findall(f, energies)
@@ -693,11 +693,11 @@ function spectraEcut(ass::Assignment{<:Spectra}, Ecut::Float64, dE::Float64)
     dims = Int[]
     seg = []
     reciprocals = []
-    for (i, bound) in enumerate(ass.action.path.bounds)
+    for (i, bound) in enumerate(ass.action.reciprocalspace.bounds)
         if bound.length > 1 
             push!(dims, bound.length)
             push!(seg, bound)
-            push!(reciprocals, ass.action.path.reciprocals[i])
+            push!(reciprocals, ass.action.reciprocalspace.reciprocals[i])
         end
     end
     @assert length(dims) == 2 "spectraEcut error: the k points is not in a plane."

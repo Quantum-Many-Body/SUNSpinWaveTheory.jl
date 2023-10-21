@@ -144,8 +144,8 @@ plot!(plt1, energybands, color=:white, linestyle=:dash, linealpha=0.1,xticks=([0
 nx, ny = 32, 32
 b₁, b₂ = reciprocals(lattice)
 zone = ReciprocalZone([b₁, b₂-b₁/2], 
-    Segment(0, +1, nx; ends=(true, true)), 
-    Segment(-0//2, +2//2, ny; ends=(true,true))
+    0=>1, 0=>1; length=(nx, ny),
+    ends=((true, true), (true, true))
     )
 inszone = antiferromagnet(:MultipoleZone,
     Spectra{Multipole}(zone, range(0.0, 20, length=501), (Mss, Mssd); fwhm=0.2, gauss=true, scale=identity, atol=1e-9)
