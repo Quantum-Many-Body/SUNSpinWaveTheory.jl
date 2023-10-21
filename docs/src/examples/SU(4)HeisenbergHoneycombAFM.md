@@ -12,7 +12,7 @@ The following codes could compute the flavor wave dispersions of the SU(4) antif
 ```@example SU(4)AFM
 using SUNSpinWaveTheory
 using Plots: plot, plot!
-using QuantumLattices: Lattice, Point, Hilbert, Algorithm, ReciprocalPath, atol,ReciprocalZone, Segment
+using QuantumLattices: Lattice, Point, Hilbert, Algorithm, ReciprocalPath, atol,ReciprocalZone
 using TightBindingApproximation: EnergyBands
 using QuantumLattices: Fock, @σ_str, Onsite, expand, bonds, MatrixCoupling, FID, reciprocals, @hexagon_str
 using StaticArrays: @SVector

@@ -11,7 +11,7 @@ The following codes could compute the spin wave dispersions of the antiferromagn
 ```@example SU(2)AFM
 using SUNSpinWaveTheory
 using Plots: plot, plot!
-using QuantumLattices: Lattice, Point, Hilbert, Algorithm, ReciprocalPath, @rectangle_str, atol,ReciprocalZone, Segment
+using QuantumLattices: Lattice, Point, Hilbert, Algorithm, ReciprocalPath, @rectangle_str, atol,ReciprocalZone
 using TightBindingApproximation: EnergyBands
 using QuantumLattices: Fock, @σ_str, Onsite, expand, bonds, reciprocals, MatrixCoupling, FID
 using StaticArrays: @SVector
