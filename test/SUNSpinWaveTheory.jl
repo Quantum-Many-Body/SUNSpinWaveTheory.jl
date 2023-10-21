@@ -73,7 +73,7 @@ using Optim: ConjugateGradient
                     Spectra{Multipole}(path, range(0.0, 5.0, length=501), (ss,ss); fwhm=0.1, scale=log)
                     )
     plt1 = plot()
-    plot!(plt1, insmultipole, [-1.0, -0.1])
+    plot!(plt1, insmultipole, [-1.0, -0.1]) # title : [-1.0,-0.1] are values of J and h respectively.
     plot!(plt1, ebs, color=:red, linestyle=:dash)
     display(plt1)
     savefig("squareFM_Multipole_spectra.png")
