@@ -587,7 +587,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT{SUNMagnonic}}, ins::Assignment{<:Spec
     kT = get(ins.action.options, :kT, 0.0) # k = 8.617333262145e-5 eV/K
     σ = gauss ? get(ins.action.options, :fwhm, 0.1)/2/√(2*log(2)) : get(ins.action.options, :fwhm, 0.1)
     for (i, q) in enumerate(ins.action.reciprocalspace)
-        (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, ins.action.options...)
+        (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, gauge=:icoordinate, ins.action.options...)
         @timeit sunlswt.timer "spectra" for α=1:3, β=1:3
             factor = delta(α, β) - ((norm(q)==0 || α>length(q) || β>length(q)) ? 0 : q[α]*q[β]/dot(q, q))
             if !isapprox(abs(factor), 0, atol=atol, rtol=rtol)
@@ -633,7 +633,7 @@ function run!(sunlswt::Algorithm{<:SUNLSWT}, ins::Assignment{<:Spectra{Multipole
     gauss = get(ins.action.options, :gauss, true)
     σ = gauss ? get(ins.action.options, :fwhm, 0.1)/2/√(2*log(2)) : get(ins.action.options, :fwhm, 0.1)
     for (i, q) in enumerate(ins.action.reciprocalspace)
-        (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, ins.action.options...)
+        (eigenvalues, eigenvectors) = eigen(sunlswt; k=q, gauge=:icoordinate, ins.action.options...)
         @timeit sunlswt.timer "spectra" (
                 matrix!(m, operators, sunlswt.frontend.H.table, q);
                 diag = Diagonal(eigenvectors'*m*eigenvectors);
