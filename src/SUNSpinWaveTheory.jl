@@ -383,7 +383,8 @@ Construct a SUNLSWT. `lattice` is the original lattice.
 """
 @inline function SUNLSWT(lattice::AbstractLattice, hilbert::Hilbert, terms::Tuple{Vararg{Term}}, magneticstructure::MagneticStructure; neighbors::Union{Nothing, Int, Neighbors}=nothing, boundary::Boundary=plain)
     isnothing(neighbors) && (neighbors=maximum(term->term.bondkind, terms))
-    Hₛ = OperatorGenerator(terms, bonds(magneticstructure.cell, neighbors), hilbert; half=false, boundary=boundary)
+    # Hₛ = OperatorGenerator(terms, bonds(magneticstructure.cell, neighbors), hilbert; half=false, boundary=boundary)
+    Hₛ = OperatorGenerator(terms, bonds(magneticstructure.cell, neighbors), hilbert, boundary; half=false)
     hp = HPTransformation{valtype(Hₛ)}(magneticstructure)
     return SUNLSWT{SUNMagnonic}(lattice, Hₛ, hp)
 end
