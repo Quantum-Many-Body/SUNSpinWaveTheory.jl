@@ -1,7 +1,7 @@
 name = "SUNSpinWaveTheory"
 uuid = "3cc645e2-8e7a-4ca5-82a4-27824dbc5d93"
 authors = ["wwangnju <wwangnju@163.com> and contributors"]
-version = "0.1.2"
+version = "0.1.3"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -17,4 +17,4 @@ WignerSymbols = "9f57e263-0b3d-5e2e-b1be-24f2bb48858b"
 [compat]
 QuantumLattices = "0.9.14"
 TightBindingApproximation = "0.1.21"
-julia = "1.8 - 1.10"
+julia = "1.9 - 1.10"

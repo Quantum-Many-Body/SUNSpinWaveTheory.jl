@@ -353,8 +353,8 @@ struct SUNLSWT{K<:TBAKind{:BdG}, L<:AbstractLattice, Hₛ<:OperatorGenerator, HP
         temp = hp(Hₛ)
         hilbert = Hilbert(Hₛ.hilbert, hp.magneticstructure)
         table = Table(hilbert, Metric(K(), hilbert))
-        H₀ = RankFilter(0)(temp, table=table)
-        H₂ = RankFilter(2)(temp, table=table)
+        H₀ = RankFilter(0)(temp, table)
+        H₂ = RankFilter(2)(temp, table)
         commt = commutator(K(), hilbert)
         new{K, typeof(lattice), typeof(Hₛ), typeof(hp), typeof(H₀), typeof(H₂)}(lattice, Hₛ, hp, H₀, H₂, commt)
     end
@@ -429,8 +429,8 @@ Return the coefficience of exchange interactions, i.e. ∑(Jᵢ₁ⱼ₂ⱼ₃�
 """
 function matrixcoef(sunlswt::SUNLSWT)
     table = Table(sunlswt.Hₛ.hilbert, OperatorUnitToTuple(:site, :orbital, :spin))
-    H4 = RankFilter(4)(sunlswt.Hₛ, table=table)
-    H2 = RankFilter(2)(sunlswt.Hₛ, table=table)
+    H4 = RankFilter(4)(sunlswt.Hₛ, table)
+    H2 = RankFilter(2)(sunlswt.Hₛ, table)
     hcoef = zeros(valtype(eltype(valtype(sunlswt.Hₛ))), length(table), length(table), length(table), length(table))
     for opt4 in H4
         seq₁ = table[opt4[1].index]
