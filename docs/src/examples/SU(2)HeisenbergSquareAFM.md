@@ -36,8 +36,8 @@ cell = Lattice(
 j, B = 1.0, -0.01
 Jmat = 1/4*(kron(σx,σx) + kron(σy,σy) + kron(σz,σz))
 hmat = σy/2
-J = SUNTerm(:J, Jmat, 2, 2, 1; value=j)
-h = SUNTerm(:h, hmat, 2, 2, 0; amplitude=( x-> iseven(x[1].site) ? -1 : 1) , value=B )
+J = SUNTerm(:J, Jmat, 2, 2, 1; value=j, modulate=true)
+h = SUNTerm(:hy, hmat, 2, 2, 0; amplitude=( x-> iseven(x[1].site) ? -1 : 1), value=B, modulate=true )
 
 hilbert = Hilbert(pid=>Fock{:b}(2, 1) for pid in 1:length(cell))
 
@@ -53,7 +53,10 @@ eng = SUNLSWT(lattice, hilbert, (J, h), magneticstructure)
 op = optimorder2(eng; method = ConjugateGradient(), numrand = 4);
 
 #the classical energy
-println("The classical energy ≈ -1.01 :",isapprox(op[2].minimum, -1.01, atol=atol))
+println("The classical energy ≈ -1.01 :", isapprox(op[2].minimum, -1.01, atol=atol))
+
+# The quantum-ground-state energy per magnetic unit cell
+println("The zero-point energy ≈ -1.3223667 :", isapprox(quantumGSenergy(op[1], 32, imagtol=1e-14), -1.322366749444462, atol=atol))
 
 antiferromagnet = Algorithm(:SquareAFM, op[1] )
 

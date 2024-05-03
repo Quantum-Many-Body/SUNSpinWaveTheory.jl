@@ -3,12 +3,12 @@ using Printf: @sprintf
 using RecipesBase: RecipesBase, @recipe, @series
 using TimerOutputs: @timeit
 using StaticArrays: SVector, SMatrix, @SMatrix
-using LinearAlgebra: Hermitian, Diagonal, dot, eigen, norm, I, kron, diag
+using LinearAlgebra: Hermitian, Diagonal, dot, eigen, norm, I, kron, diag, tr
 using QuantumLattices: ID, CompositeIndex, Operator, Operators, UnitSubstitution, RankFilter,  OperatorGenerator, Image, Action, Algorithm, Assignment
-using QuantumLattices: AbstractLattice, bonds, Index, FID, Table, Hilbert, Fock, Term, Boundary, ReciprocalPath, ReciprocalZone, ReciprocalSpace
+using QuantumLattices: AbstractLattice, bonds, Index, FID, Table, Hilbert, Fock, Term, Boundary, ReciprocalPath, ReciprocalZone, ReciprocalSpace, BrillouinZone
 using QuantumLattices: atol, rtol, dtype, indextype, fulltype, idtype, reparameter, sub!, mul!, expand, plain, rcoordinate, icoordinate, delta, decimaltostr
 using QuantumLattices: Coulomb, Onsite, matrix, dimension, Neighbors, Coupling, ishermitian, MatrixCoupling
-using QuantumLattices: OperatorUnitToTuple
+using QuantumLattices: OperatorUnitToTuple, reciprocals
 using TightBindingApproximation: TBAKind, AbstractTBA, TBAMatrixRepresentation
 using Optim: LBFGS, optimize, Fminbox, Options
 using WignerSymbols: clebschgordan
@@ -19,6 +19,7 @@ import TightBindingApproximation: commutator
 export MagneticStructure, HPTransformation, suncouplings, SUNTerm, localorder, matrixcoef, spectraEcut, multipoleOperator
 export SUNLSWT, Spectra, rotation_gen, rotation, @rotation_gen, optimorder, optimorder2, fluctuation
 export SpectraKind, InelasticNeutron, Multipole, @f2couplings, kdosOperator
+export quantumGSenergy
 
 macro f2couplings(ex, ex1, ey1)
     res = :(+())
@@ -205,7 +206,7 @@ end
 """
     MagneticStructure{L<:AbstractLattice, P<:Int, D<:Number, T<:Complex}
 
-The magnetic structure of an ordered quantum lattice system. 
+The magnetic structure of an ordered quantum lattice system. The `cell` is a magnetic cell.
 """
 struct MagneticStructure{L<:AbstractLattice, P<:Int, D<:Number, T<:Complex}
     cell::L
@@ -411,7 +412,7 @@ function add!(dest::Matrix, mr::TBAMatrixRepresentation{SUNMagnonic}, m::Operato
         seq₁ = mr.table[m[1].index']
         seq₂ = mr.table[m[2].index]
         dest[seq₁, seq₂] += m.value*phase
-        if m[1].index.site == m[2].index.site && isapprox(norm(rcoordinate(m)), 0, atol=atol, rtol=rtol)
+        if m[1].index.site == m[2].index.site && isapprox(norm(rcoordinate(m)), 0, atol=atol/10, rtol=rtol)
             seq₃ = mr.table[m[2].index']
             seq₄ = mr.table[m[1].index]
             dest[seq₃, seq₄] += m.value 
@@ -523,7 +524,8 @@ function optimorder(sunlswt::SUNLSWT; numrand::Int = 0, method = LBFGS(), g_tol 
     hp₁ =  HPTransformation{valtype(sunlswt.Hₛ)}(ms₁)
     newsunlswt = SUNLSWT{SUNMagnonic}(sunlswt.lattice, sunlswt.Hₛ, hp₁)
     E₀ = (newsunlswt.Ω.operators|>expand).contents[()].value
-    @assert imag(E₀) < 1e-12 "optimorder error: the imaginary part of H₀ (classical energy $(E₀)) is larger than 1e-12. "
+    @assert isapprox(real(E₀), op₀.minimum, atol=1e-11) "optimorder error: classical energy per unit magnetic cell E₀(=$(real(E₀))) == minimum(=$(op₀.minimum))."
+    @assert imag(E₀) < 1e-12 "optimorder error: the imaginary part of H₀ (classical energy per unit magnetic cell $(E₀)) is larger than 1e-12. "
     return newsunlswt, op₀
 end
 
@@ -727,18 +729,18 @@ function multipoleOperator(j₁::Union{Int, Rational{Int}}, j₂::Union{Int, Rat
     return res
 end
 """
-    fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone, pid::Int, nbonson::Int; atol=1e-8) -> Float64
-    fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone; atol=1e-8) -> Dict{<:AbstractPID, Float64}
+    fluctuation(sunlswt::SUNLSWT, bz::BrillouinZone, site::Int, nbonson::Int; imagtol=1e-8) -> Float64
+    fluctuation(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-8) -> Dict{<:Int, Float64}
 
 To calculate ``⟨b_0^†b_0⟩`` with respect to the quantum ground state |0⟩ at zero temperature.  
 """
-function fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone, pid::Int, nbonson::Int; atol=1e-8)
+function fluctuation(sunlswt::SUNLSWT, bz::BrillouinZone, site::Int, nbonson::Int; imagtol=1e-8)
     table = sunlswt.H.table
     n = length(table)÷2
-    indx = [Index(pid, FID{:b}(i, 0, 2)) for i in 1:nbonson]
+    indx = [Index(site, FID{:b}(i, 0, 2)) for i in 1:nbonson]
     v = 0.0
     for q in bz
-        m = matrix(sunlswt; atol=atol, k=q)
+        m = matrix(sunlswt; atol=imagtol, k=q)
         for j in 1:nbonson
             v += sum(abs2, eigen(m).vectors[table[indx[j]], n+1:end])
         end
@@ -747,17 +749,37 @@ function fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone, pid::Int, nbonson::In
     @assert res >= 0.0 "fluctuation error: it is negative, please increase the number of k points." 
     return res
 end
-function fluctuation(sunlswt::SUNLSWT, bz::ReciprocalZone; atol=1e-8)
+function fluctuation(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-8)
     ms = sunlswt.hp.magneticstructure.moments
     res = Dict{keytype(ms), Float64}()
-    for pid in keys(ms)
-        nbonson = length(ms[pid])÷2
-        v = fluctuation(sunlswt, bz, pid, nbonson; atol=atol)
-        res[pid] = v
+    for site in keys(ms)
+        nbonson = length(ms[site])÷2
+        v = fluctuation(sunlswt, bz, site, nbonson; imagtol=imagtol)
+        res[site] = v
     end
     return res
 end
+"""
+    quantumGSenergy(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-8) -> Float64
+    quantumGSenergy(sunlswt::SUNLSWT, nk::Int; imagtol=1e-8) -> Float64
 
+Calculate the quantum-ground-state energy per magnetic unit cell. ``E=E_{calssical}/N_{mc}-1/(2N_{mc})*∑_{kα}ω_{kα} - 1/(4N_{mc})∑_kTr(H(k))``, where ``N_{mc}`` is the number of magnetic unit cell
+"""
+function quantumGSenergy(sunlswt::SUNLSWT, nk::Int; imagtol=1e-12)
+    magneticcell = sunlswt.hp.magneticstructure.cell
+    bz = BrillouinZone(reciprocals(magneticcell), nk)
+    return quantumGSenergy(sunlswt, bz; imagtol=imagtol)
+end
+function quantumGSenergy(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-12)
+    gsenergy =  (sunlswt.Ω.operators|>expand).contents[()].value
+    nkk = length(bz)
+    for q in bz
+        hq = matrix(sunlswt; atol=imagtol, k=q)
+        gsenergy += -0.25*tr(hq)/nkk + sum(abs, eigen(hq).values)/4/nkk
+    end
+    abs(imag(gsenergy)) > 1e-12 && error("quantumGSenergy error: the imaginary part of energy per magnetic unit cell (=$(imag(gsenergy))) is too large.") 
+    return real(gsenergy)
+end
 #plot
 """
     @recipe  plot(pack::Tuple{Algorithm{<:SUNLSWT}, Assignment{<:Spectra}}, Ecut::Float64, dE::Float64=1e-3)

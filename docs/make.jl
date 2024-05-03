@@ -12,7 +12,7 @@ makedocs(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://Quantum-Many-Body.github.io/SUNSpinWaveTheory.jl",
         edit_link="master",
-        assets=String[],
+        assets=String[],#["assets/favicon.ico"],
     ),
     pages=[
         "Home" => "index.md",

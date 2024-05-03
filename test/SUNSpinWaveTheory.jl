@@ -1,6 +1,6 @@
 using SUNSpinWaveTheory
 using Plots: plot, plot!, savefig
-using QuantumLattices: Lattice, Hilbert, Algorithm, ReciprocalPath, @rectangle_str, atol, ReciprocalZone, Segment, reciprocals
+using QuantumLattices: Lattice, Hilbert, Algorithm, ReciprocalPath, @rectangle_str, atol, ReciprocalZone, reciprocals
 using TightBindingApproximation: EnergyBands
 using QuantumLattices: Fock, @σ_str, Onsite, expand, bonds, MatrixCoupling, FID
 using StaticArrays: @SVector
@@ -28,6 +28,7 @@ using Optim: ConjugateGradient
     #optimize the ground state
     op = optimorder(eng; method = ConjugateGradient(), numrand = 2);
     @test isapprox(op[2].minimum , -0.55, atol=atol)
+    @test isapprox(quantumGSenergy(op[1], 8, imagtol=atol), -0.55, atol=1e-12)
     # order parameters
     px = Dict(pid => σx for pid in 1:length(lattice))
     py = Dict(pid => σy for pid in 1:length(lattice))
