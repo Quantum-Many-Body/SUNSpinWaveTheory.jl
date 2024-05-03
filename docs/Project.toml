@@ -8,7 +8,3 @@ SUNSpinWaveTheory = "3cc645e2-8e7a-4ca5-82a4-27824dbc5d93"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TightBindingApproximation = "d3576f78-cb9d-4774-9dc5-b247cf392ff4"
 
-[compat]
-QuantumLattices = "0.9.12"
-TightBindingApproximation = "0.1.20"
-julia = "1.8 - 1.9"
