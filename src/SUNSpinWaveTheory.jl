@@ -763,7 +763,7 @@ end
     quantumGSenergy(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-8) -> Float64
     quantumGSenergy(sunlswt::SUNLSWT, nk::Int; imagtol=1e-8) -> Float64
 
-Calculate the quantum-ground-state energy per magnetic unit cell. ``E=E_{calssical}/N_{mc}-1/(2N_{mc})*∑_{kα}ω_{kα} - 1/(4N_{mc})∑_kTr(H(k))``, where ``N_{mc}`` is the number of magnetic unit cell
+Calculate the quantum-ground-state energy per magnetic unit cell. ``E=E_{classical}/N_{mc}+1/(2N_{mc})*∑_{kα}ω_{kα} - 1/(4N_{mc})∑_kTr(H(k))``, where ``N_{mc}`` is the number of magnetic unit cell
 """
 function quantumGSenergy(sunlswt::SUNLSWT, nk::Int; imagtol=1e-12)
     magneticcell = sunlswt.hp.magneticstructure.cell
