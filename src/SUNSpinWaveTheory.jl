@@ -1,5 +1,6 @@
 module SUNSpinWaveTheory
 using Printf: @sprintf
+using Base.Iterators: product
 using RecipesBase: RecipesBase, @recipe, @series
 using TimerOutputs: @timeit
 using StaticArrays: SVector, SMatrix, @SMatrix
@@ -8,7 +9,7 @@ using QuantumLattices: ID, CompositeIndex, Operator, Operators, UnitSubstitution
 using QuantumLattices: AbstractLattice, bonds, Index, FID, Table, Hilbert, Fock, Term, Boundary, ReciprocalPath, ReciprocalZone, ReciprocalSpace, BrillouinZone
 using QuantumLattices: atol, rtol, dtype, indextype, fulltype, idtype, reparameter, sub!, mul!, expand, plain, rcoordinate, icoordinate, delta, decimaltostr
 using QuantumLattices: Coulomb, Onsite, matrix, dimension, Neighbors, Coupling, ishermitian, MatrixCoupling
-using QuantumLattices: OperatorUnitToTuple, reciprocals
+using QuantumLattices: OperatorUnitToTuple, reciprocals, shape, tile
 using TightBindingApproximation: TBAKind, AbstractTBA, TBAMatrixRepresentation
 using Optim: LBFGS, optimize, Fminbox, Options
 using WignerSymbols: clebschgordan
@@ -19,7 +20,7 @@ import TightBindingApproximation: commutator
 export MagneticStructure, HPTransformation, suncouplings, SUNTerm, localorder, matrixcoef, spectraEcut, multipoleOperator
 export SUNLSWT, Spectra, rotation_gen, rotation, @rotation_gen, optimorder, optimorder2, fluctuation
 export SpectraKind, InelasticNeutron, Multipole, @f2couplings, kdosOperator
-export quantumGSenergy
+export quantumGSenergy, StaticStructureFactor
 
 macro f2couplings(ex, ex1, ey1)
     res = :(+())
@@ -780,6 +781,79 @@ function quantumGSenergy(sunlswt::SUNLSWT, bz::BrillouinZone; imagtol=1e-12)
     abs(imag(gsenergy)) > 1e-12 && error("quantumGSenergy error: the imaginary part of energy per magnetic unit cell (=$(imag(gsenergy))) is too large.") 
     return real(gsenergy)
 end
+
+struct StaticStructureFactor{P<:ReciprocalSpace, S<:Dict{Int, <:AbstractMatrix{<:Number}}, O} <: Action
+    reciprocalspace::P
+    operators::Tuple{AbstractVector{S}, AbstractVector{S}}
+    options::O
+    function StaticStructureFactor(reciprocalspace::ReciprocalSpace, operators::Tuple{AbstractVector{S}, AbstractVector{S}}, options) where {S<:Dict{Int, <:AbstractMatrix{<:Number}}}
+        @assert names(reciprocalspace)==(:k,) "StaticStructureFactor error: the name of the momenta in the reciprocalspace must be :k."
+        # datatype = valtype(eltype(eltype(operators)))
+        new{typeof(reciprocalspace), S, typeof(options)}(reciprocalspace, operators, options)
+    end
+end
+@inline StaticStructureFactor(reciprocalspace::ReciprocalSpace, operators::Tuple{AbstractVector{S}, AbstractVector{S}}; options...) where S<:Dict{Int,<:AbstractMatrix{<:Number}}  = StaticStructureFactor(reciprocalspace, operators, options)
+
+@inline function initialize(ssf::StaticStructureFactor{<:Union{ReciprocalZone, BrillouinZone}}, ::SUNLSWT)
+    x = ssf.reciprocalspace
+    @assert length(ssf.reciprocalspace.reciprocals)==2 "initialize error: only two dimensional reciprocal spaces are supported."
+    ny, nx = map(length, shape(ssf.reciprocalspace))
+    z = zeros(ComplexF64, ny, nx)
+    return (x, z)
+end
+@inline function initialize(ssf::StaticStructureFactor{<:ReciprocalPath}, ::SUNLSWT)
+    np = length(ssf.reciprocalspace)
+    z = zeros(ComplexF64, np)
+    return (ssf.reciprocalspace, z)
+end
+function run!(sunlswt::Algorithm{<:SUNLSWT}, ssf::Assignment{<:StaticStructureFactor})
+    cell = sunlswt.frontend.hp.magneticstructure.cell
+    natoms = length(cell)
+    @assert natoms == length(first(ssf.action.operators[1])) "StaticStructureFactor error: Please define operators on every site."
+    lops = ssf.action.operators[1]
+    rops = ssf.action.operators[2]
+    @assert length(lops) == length(rops) "StaticStructureFactor error: The number of operators is the same. "
+    spinlop, spinrop = zeros(length(lops), length(cell)), zeros(length(rops), length(cell))
+    for j in eachindex(lops)
+        for i in 1:natoms
+            spinlop[j, i] = localorder(sunlswt.frontend, lops[j])[i]
+            spinrop[j, i] = localorder(sunlswt.frontend, rops[j])[i]
+        end
+    end
+    nnb = get(ssf.action.options, :ntrans, 1)
+    translations = reshape(product((-nnb:nnb for i = 1:length(cell.vectors))...)|>collect, :)
+    for translation in translations
+        remove = ntuple(i->-translation[i], length(translation))
+        filter!(≠(remove), translations)
+    end
+    if length(translations) > 0
+        superrcoordinates = tile(cell.coordinates, cell.vectors, translations)
+    else
+        superrcoordinates = cell.coordinates
+    end
+    res = ComplexF64[]
+    for q in ssf.action.reciprocalspace
+        z = 0.0
+        for i in axes(superrcoordinates, 2)
+            ir = mod1(i, natoms)
+            for j in i:size(superrcoordinates, 2)
+                il = mod1(j, natoms)
+                factor = i==j ? 1 : 2
+                correlation = dot(spinlop[:, il], spinrop[:, ir])
+                rcoord = superrcoordinates[:, j] - superrcoordinates[:, i]
+                z += factor*cos(dot(q, rcoord))*correlation
+            end
+        end
+        push!(res, z)
+    end
+    if typeof(ssf.action.reciprocalspace) <: Union{ReciprocalZone, BrillouinZone}
+        ny, nx = map(length, shape(ssf.action.reciprocalspace))
+        ssf.data[2][:, :] = reshape(res, ny, nx)/size(superrcoordinates, 2)
+    else
+        ssf.data[2][:] = res[:]/size(superrcoordinates, 2)
+    end
+end
+
 #plot
 """
     @recipe  plot(pack::Tuple{Algorithm{<:SUNLSWT}, Assignment{<:Spectra}}, Ecut::Float64, dE::Float64=1e-3)
@@ -824,6 +898,14 @@ function Base.nameof(alg::Algorithm, assign::Assignment{<:Spectra}, parameters::
     end
     return join(result, "_")
 end
+
+@recipe function plot(pack::Tuple{Algorithm{<:SUNLSWT}, Assignment{<:StaticStructureFactor}})
+        title --> nameof(pack...)
+        titlefontsize --> 10
+        pack[2].data[1], real.(pack[2].data[2])
+end
+
+
 """
     optimorder2(sunlswt::SUNLSWT; numrand::Int = 0,rule::Function=x->x, method = LBFGS(), g_tol = 1e-12, optionskwargs... ) -> Tuple{SUNLSWT, Union{Optim.MultivariateOptimizationResults, Nothing}}
 
